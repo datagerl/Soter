@@ -1,0 +1,48 @@
+name: Testnet Integration Harness
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_write_flow:
+        description: 'Run write flow (requires SOROBAN_TOKEN_ADDRESS set)'
+        type: boolean
+        default: false
+  push:
+    branches:
+      - main
+      - 'release/**'
+
+jobs:
+  integration-harness:
+    name: Testnet Integration Harness
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' || (secrets.SOROBAN_CONTRACT_ID != '' && secrets.SOROBAN_RPC_URL != '')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: tools/testnet-smoke
+        run: |
+          npm ci
+
+      - name: Run integration harness
+        working-directory: tools/testnet-smoke
+        env:
+          SOROBAN_RPC_URL: ${{ secrets.SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org' }}
+          SOROBAN_CONTRACT_ID: ${{ secrets.SOROBAN_CONTRACT_ID }}
+          SOROBAN_ADMIN_SECRET_KEY: ${{ secrets.SOROBAN_ADMIN_SECRET_KEY }}
+          SOROBAN_TOKEN_ADDRESS: ${{ secrets.SOROBAN_TOKEN_ADDRESS }}
+          SOROBAN_RECIPIENT_SECRET_KEY: ${{ secrets.SOROBAN_RECIPIENT_SECRET_KEY }}
+          SOROBAN_NETWORK_PASSPHRASE: ${{ secrets.SOROBAN_NETWORK_PASSPHRASE || 'Test SDF Network ; September 2015' }}
+          SMOKE_RETRIES: ${{ vars.SMOKE_RETRIES || '3' }}
+          SMOKE_RETRY_DELAY_MS: ${{ vars.SMOKE_RETRY_DELAY_MS || '2000' }}
+          SMOKE_OP_TIMEOUT_MS: ${{ vars.SMOKE_OP_TIMEOUT_MS || '120000' }}
+        run: |
+          node index.js
